@@ -1,0 +1,22 @@
+import os
+import sys
+from dotenv import load_dotenv
+from mcp import StdioServerParameters
+from google.adk.tools.mcp_tool import McpToolset
+import yfinance as yf
+
+# Load .env
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+def get_market_pulse_toolset():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    server_path = os.path.join(current_dir, "mcp_server.py")
+    
+    return McpToolset(
+        connection_params=StdioServerParameters(
+            command=sys.executable,
+            args=[server_path],
+            env=os.environ.copy()
+        )
+        # request_timeout removed to fix the TypeError
+    )
