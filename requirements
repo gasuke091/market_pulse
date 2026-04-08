@@ -1,0 +1,12 @@
+google-adk
+google-cloud-alloydb-connector[pg8000]
+sqlalchemy
+pg8000
+python-dotenv
+yfinance
+pandas
+plotly
+matplotlib
+gunicorn
+
+
