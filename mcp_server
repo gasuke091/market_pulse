@@ -1,0 +1,76 @@
+import os
+import logging
+from fastmcp import FastMCP
+
+# 1. Initialize FastMCP with a clear name
+mcp = FastMCP("MarketPulse")
+
+# 2. Setup lightweight logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("market_pulse")
+
+@mcp.tool()
+def get_market_data(ticker: str) -> str:
+    """
+    Fetches real-time price, daily change, and currency for a stock or crypto ticker.
+    Args:
+        ticker: The symbol to look up (e.g., 'NVDA', 'BTC-USD')
+    """
+    # --- LAZY LOADING: Prevents 5s timeout on startup ---
+    import yfinance as yf
+    import pandas as pd
+    # ----------------------------------------------------
+
+    try:
+        logger.info(f"Fetching data for {ticker}...")
+        stock = yf.Ticker(ticker)
+        
+        # Using fast_info for speed
+        info = stock.fast_info
+        price = info.get('last_price')
+        currency = info.get('currency', 'USD')
+        change = info.get('day_change_percent')
+
+        # Fallback if fast_info is empty
+        if price is None or price == 0:
+            hist = stock.history(period="1d")
+            if not hist.empty:
+                price = hist['Close'].iloc[-1]
+                prev_close = stock.info.get('previousClose', price)
+                change = ((price - prev_close) / prev_close) * 100
+            else:
+                return f"Error: No data found for {ticker}."
+
+        return (
+            f"Ticker: {ticker}\n"
+            f"Current Price: {price:.2f} {currency}\n"
+            f"Daily Change: {change:.2f}%\n"
+            f"Status: Success"
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching {ticker}: {str(e)}")
+        return f"Error retrieving data: {str(e)}"
+
+@mcp.tool()
+def get_recent_news(ticker: str) -> str:
+    """Retrieves the latest news headlines for context."""
+    # --- LAZY LOADING ---
+    import yfinance as yf
+    # --------------------
+    
+    try:
+        stock = yf.Ticker(ticker)
+        news = stock.news
+        if not news:
+            return f"No recent news found for {ticker}."
+        
+        formatted_news = [f"- {item['title']} (Source: {item['publisher']})" for item in news[:3]]
+        return "\n".join(formatted_news)
+    except Exception as e:
+        return f"Could not retrieve news: {str(e)}"
+
+if __name__ == "__main__":
+    # CRITICAL: Always use default mcp.run() for Cloud Run deployments.
+    # The ADK Web UI handles the ports; this server must use STDIO.
+    mcp.run()
